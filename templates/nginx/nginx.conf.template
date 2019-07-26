@@ -52,7 +52,7 @@ http {
 
     {% if stats_port %}
     server {
-        listen {{ proxy_config.stats_port }};
+        listen {{ stats_port }};
         location /aurproxy_error.html {
             internal;
             echo "Error";
