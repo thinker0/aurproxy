@@ -350,7 +350,7 @@ def _momory_logger():
 if __name__ == '__main__':
   tracemalloc.start(25)
   spawn_later(60, _momory_logger)
-  gc.set_debug(gc.DEBUG_LEAK)
+  # gc.set_debug(gc.DEBUG_LEAK)
   gc.enable()
   try:
     commandr.Run()

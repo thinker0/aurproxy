@@ -209,7 +209,7 @@ class HttpHealthCheckShareAdjuster(ShareAdjuster):
         check_result = HealthCheckResult.SUCCESS
         msg = self._record_msg(HttpHealthCheckLogEvent.RUNNING_CHECK,
                      HttpHealthCheckLogResult.SUCCESS, source=source)
-        logger.debug(RECORD_MESSAGE, msg)
+        logger.info(RECORD_MESSAGE, msg)
 
       else:
         check_result = HealthCheckResult.ERROR_CODE
