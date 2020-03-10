@@ -18,6 +18,7 @@ import json
 from gevent.lock import RLock
 
 from .serverset import (
+  SourceEndpoint,
   Endpoint,
   Member,
   ServerSet,
@@ -103,3 +104,19 @@ class MesosMasterProxySource(ServerSetSource):
         self._current_leader = sorted(servers, key=lambda s: s.name)[0]
         ret = [self._current_leader]
     return ret
+
+  def _get_endpoint(self, service_instance):
+    ep = service_instance.service_endpoint
+    port_map = {}
+    source = None
+    if self._kw.get('cluster') and self._kw.get('role') and self._kw.get('env') and self._kw.get('job'):
+      source = "{0}.{1}.{2}.{3}.{4}".format(self._kw.get('cluster'),
+                                            self._kw.get('role'),
+                                            self._kw.get('env'),
+                                            self._kw.get('job'),
+                                            service_instance.shard)
+    for k, v in service_instance.additional_endpoints.items():
+      port_map[k] = v.port
+    return SourceEndpoint(host=ep.host,
+                          port=ep.port,
+                          context={'port_map': port_map, 'source': source})
