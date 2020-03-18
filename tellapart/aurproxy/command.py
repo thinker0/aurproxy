@@ -22,8 +22,6 @@ gevent.monkey.patch_all()
 import commandr
 from flask import Flask
 from gevent.pywsgi import WSGIServer
-from werkzeug.middleware.dispatcher import DispatcherMiddleware
-from prometheus_client import make_wsgi_app
 import json
 import logging
 
@@ -330,8 +328,7 @@ def _start_web(port, sentry_dsn=None, blueprints=None):
       app.register_blueprint(blueprint)
   if sentry_dsn:
     app = setup_sentry_wsgi(app, sentry_dsn)
-  app_dispatch = DispatcherMiddleware(app, {'/metrics': make_wsgi_app()})
-  http_server = WSGIServer(('0.0.0.0', int(port)), app_dispatch)
+  http_server = WSGIServer(('0.0.0.0', int(port)), app)
   try:
       http_server.serve_forever()
   except KeyboardInterrupt:
