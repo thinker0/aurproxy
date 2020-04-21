@@ -60,7 +60,10 @@ http {
         location /aurproxy/status {
             stub_status on;
             access_log on;
-            allow {{ context.internal_source_cidr or 127.0.0.1 }};
+            {% if context.internal_source_cidr %}
+            allow {{ context.internal_source_cidr }};
+            {%- endif %}
+            allow 127.0.0.1;
             deny all;
         }
     }
