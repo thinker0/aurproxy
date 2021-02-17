@@ -58,7 +58,7 @@ class DelayStartShareAdjuster(ShareAdjuster):
     """
     if self._start_time is None:
       self._log.warn('DelayStartShareAdjuster: No start time.')
-      return 1.0, AuditItem('delay', '1.0')
+      return 0.0, AuditItem('delay', '0.0')
 
     if datetime.now() > self._activation_time:
       return 1.0, AuditItem('delay', '1.0')
