@@ -29,11 +29,12 @@ class DelayStartShareAdjuster(ShareAdjuster):
                seconds,
                as_of=None):
     super(DelayStartShareAdjuster, self).__init__(endpoint, signal_update_fn)
+    self._endpoint = endpoint
     self._seconds = seconds
     self._start_time = as_of
     self._stop_event = Event()
     self._activation_time = None
-    self._log = logger.getChild('[DelayStartShareAdjuster]')
+    self._log = logger.getChild('DelayStartShareAdjuster')
 
   def start(self):
     """Start maintaining share adjustment factor for endpoint.
@@ -57,7 +58,7 @@ class DelayStartShareAdjuster(ShareAdjuster):
     """Return current share adjustment factor.
     """
     if self._start_time is None:
-      self._log.warn('DelayStartShareAdjuster: No start time.')
+      self._log.warn('%s No start time.' % self._endpoint)
       return 0.0, AuditItem('delay', '0.0')
 
     if datetime.now() > self._activation_time:
