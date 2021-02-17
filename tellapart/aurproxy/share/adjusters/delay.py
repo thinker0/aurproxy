@@ -18,6 +18,9 @@ from gevent.event import Event
 
 from tellapart.aurproxy.audit import AuditItem
 from tellapart.aurproxy.share.adjuster import ShareAdjuster
+from tellapart.aurproxy.util import get_logger
+
+logger = get_logger(__name__)
 
 class DelayStartShareAdjuster(ShareAdjuster):
   def __init__(self,
@@ -30,6 +33,7 @@ class DelayStartShareAdjuster(ShareAdjuster):
     self._start_time = as_of
     self._stop_event = Event()
     self._activation_time = None
+    self._log = logger.getChild('[DelayStartShareAdjuster]')
 
   def start(self):
     """Start maintaining share adjustment factor for endpoint.
@@ -53,7 +57,8 @@ class DelayStartShareAdjuster(ShareAdjuster):
     """Return current share adjustment factor.
     """
     if self._start_time is None:
-      raise Exception('DelayStartShareAdjuster: No start time.')
+      self._log.warn('DelayStartShareAdjuster: No start time.')
+      return 1.0, AuditItem('delay', '1.0')
 
     if datetime.now() > self._activation_time:
       return 1.0, AuditItem('delay', '1.0')
