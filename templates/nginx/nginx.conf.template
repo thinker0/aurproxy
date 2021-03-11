@@ -38,7 +38,13 @@ http {
     access_log /dev/stdout combined_forwarded_ip;
     error_log stderr;
 
+    {% if context.gzip -%}
     gzip on;
+    gzip_proxied any;
+    {% if context.gzip_types -%}
+    gzip_types {% for type in context.gzip_types %}{{ type }}{% if not loop.last%} {% endif %}{% endfor %};
+    {%- endif %}
+    {%- endif %}
 
     # Strip nginx version from headers & error pages
     server_tokens off;
