@@ -170,7 +170,9 @@ class HttpHealthCheckShareAdjuster(ShareAdjuster):
       Check URI string.
     """
     uri_template = 'http://{0}:{1}{2}'
-    if self._port_name and 'port_map' in self._endpoint.context:
+    if self._port_name \
+        and 'port_map' in self._endpoint.context \
+        and self._port_name in self._endpoint.context['port_map']:
       port = self._endpoint.context['port_map'][self._port_name]
     else:
       port = self._endpoint.port
