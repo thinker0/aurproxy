@@ -16,12 +16,12 @@ from __future__ import absolute_import
 
 from .serverset import ServerSetSource
 
-_DEFAULT_ANNOUNCER_SERVERSET_PATH = '/aurora/'
+_DEFAULT_ANNOUNCER_SERVERSET_PATH = '/aurora'
 _DEFAULT_AURORA_SCHEDULER_PATH = '/aurora/scheduler'
 
 
 def get_service_discovery_path(job, announcer_serverset_path):
-  return '/{0}/{1}'.format(announcer_serverset_path, job)
+  return '/{0}/{1}'.format(announcer_serverset_path, job).replace("//", "")
 
 
 def get_job_path(role, environment, job):
