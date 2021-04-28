@@ -193,6 +193,7 @@ class HttpHealthCheckShareAdjuster(ShareAdjuster):
       return
 
     source = self._endpoint.context.get('source') or ''
+    check_result = None
     try:
       check_uri = self._build_check_uri()
       msg = self._record_msg(event=HttpHealthCheckLogEvent.STARTING_CHECK,
@@ -208,8 +209,8 @@ class HttpHealthCheckShareAdjuster(ShareAdjuster):
       r = request.urlopen(check_uri, timeout=self._timeout)
 
       if r.getcode() == 200:
-        HEALTHY.labels(source=source).inc()
         check_result = HealthCheckResult.SUCCESS
+        HEALTHY.labels(source=source).inc()
         msg = self._record_msg(event=HttpHealthCheckLogEvent.RUNNING_CHECK,
                                result=check_result,
                                source=source)
@@ -254,14 +255,6 @@ class HttpHealthCheckShareAdjuster(ShareAdjuster):
       msg = self._record_msg(event=HttpHealthCheckLogEvent.RUNNING_CHECK,
                              result=check_result,
                              msg='Exception when executing HttpHealthCheck.',
-                             source=source)
-      logger.error(RECORD_MESSAGE, msg)
-
-    else:
-      check_result = HealthCheckResult.SUCCESS
-      UNHEALTHY.labels(source=source, type=check_result, status_code=200).inc()
-      msg = self._record_msg(event=HttpHealthCheckLogEvent.RUNNING_CHECK,
-                             result=check_result,
                              source=source)
       logger.error(RECORD_MESSAGE, msg)
 
