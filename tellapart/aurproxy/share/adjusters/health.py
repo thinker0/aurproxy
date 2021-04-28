@@ -14,16 +14,17 @@
 
 import collections
 import copy
+from socket import timeout
+from urllib import error
+from urllib import request
+
 from gevent import spawn_later
 from gevent.event import Event
-from urllib import request
-from urllib import error
+from prometheus_client import Counter
 
 from tellapart.aurproxy.audit import AuditItem
 from tellapart.aurproxy.share.adjuster import ShareAdjuster
 from tellapart.aurproxy.util import get_logger
-
-from prometheus_client import Counter
 
 logger = get_logger(__name__)
 
@@ -48,6 +49,7 @@ class HttpHealthCheckLogResult(object):
   FAILURE = 'failure'
   SUCCESS = 'success'
   TIMEOUT = 'timeout'
+  UNKNOWN_ERROR = 'unknown'
 
 class HealthCheckResult(object):
   """
@@ -191,12 +193,11 @@ class HttpHealthCheckShareAdjuster(ShareAdjuster):
       return
 
     source = self._endpoint.context.get('source') or ''
-    error_log_fn = None
-    msg = None
     try:
       check_uri = self._build_check_uri()
-      msg = self._record_msg(HttpHealthCheckLogEvent.STARTING_CHECK,
-                   HttpHealthCheckLogResult.SUCCESS, source=source)
+      msg = self._record_msg(event=HttpHealthCheckLogEvent.STARTING_CHECK,
+                             result=HttpHealthCheckLogResult.SUCCESS,
+                             source=source)
       logger.debug(RECORD_MESSAGE, msg)
 
       # opener = urllib.request.build_opener(urllib.request.HTTPHandler)
@@ -209,42 +210,59 @@ class HttpHealthCheckShareAdjuster(ShareAdjuster):
       if r.getcode() == 200:
         HEALTHY.labels(source=source).inc()
         check_result = HealthCheckResult.SUCCESS
-        msg = self._record_msg(HttpHealthCheckLogEvent.RUNNING_CHECK,
-                     HttpHealthCheckLogResult.SUCCESS, source=source)
+        msg = self._record_msg(event=HttpHealthCheckLogEvent.RUNNING_CHECK,
+                               result=check_result,
+                               source=source)
         logger.info(RECORD_MESSAGE, msg)
 
       else:
         check_result = HealthCheckResult.ERROR_CODE
         UNHEALTHY.labels(source=source, type=check_result, status_code=r.getcode()).inc()
-        msg = self._record_msg(HttpHealthCheckLogEvent.RUNNING_CHECK,
-                     HttpHealthCheckLogResult.FAILURE,
-                     'status_code:{0}'.format(r.getcode()),
-                     source=source)
+        msg = self._record_msg(event=HttpHealthCheckLogEvent.RUNNING_CHECK,
+                               result=HttpHealthCheckLogResult.FAILURE,
+                               msg='status_code:{0}'.format(r.getcode()),
+                               source=source)
         logger.error(RECORD_MESSAGE, msg)
+
+    except ConnectionError as ex:
+      check_result = HealthCheckResult.CONNECTION_ERROR
+      UNHEALTHY.labels(source=source, type=check_result, status_code=503).inc()
+      msg = self._record_msg(event=HttpHealthCheckLogEvent.RUNNING_CHECK,
+                             result=check_result,
+                             source=source)
+      logger.error(RECORD_MESSAGE, msg)
+
+    except timeout as ex:
+      check_result = HealthCheckResult.TIMEOUT
+      UNHEALTHY.labels(source=source, type=check_result, status_code=504).inc()
+      msg = self._record_msg(event=HttpHealthCheckLogEvent.RUNNING_CHECK,
+                             result=check_result,
+                             source=source)
+      logger.error(RECORD_MESSAGE, msg)
 
     except error.HTTPError as ex:
       check_result = HealthCheckResult.ERROR_CODE
       UNHEALTHY.labels(source=source, type=check_result, status_code=ex.code).inc()
-      msg = self._record_msg(HttpHealthCheckLogEvent.RUNNING_CHECK,
-                   HttpHealthCheckLogResult.ERROR,
-                   source=source)
+      msg = self._record_msg(event=HttpHealthCheckLogEvent.RUNNING_CHECK,
+                             result=check_result,
+                             source=source)
       logger.error(RECORD_MESSAGE, msg)
 
     except error.URLError as ex:
       check_result = HealthCheckResult.UNKNOWN_ERROR
-      error_log_fn = True
       UNHEALTHY.labels(source=source, type=check_result, status_code=502).inc()
-    else:
-      check_result = HealthCheckResult.SUCCESS
-      msg = self._record_msg(HttpHealthCheckLogEvent.RUNNING_CHECK,
-                   HttpHealthCheckLogResult.SUCCESS, source=source)
-      logger.debug(RECORD_MESSAGE, msg)
-
-    if error_log_fn:
       msg = self._record_msg(event=HttpHealthCheckLogEvent.RUNNING_CHECK,
-                   result=check_result,
-                   msg='Exception when executing HttpHealthCheck.',
-                   source=source)
+                             result=check_result,
+                             msg='Exception when executing HttpHealthCheck.',
+                             source=source)
+      logger.error(RECORD_MESSAGE, msg)
+
+    else:
+      check_result = HealthCheckResult.UNKNOWN_ERROR
+      UNHEALTHY.labels(source=source, type=check_result, status_code=500).inc()
+      msg = self._record_msg(event=HttpHealthCheckLogEvent.RUNNING_CHECK,
+                             result=check_result,
+                             source=source)
       logger.error(RECORD_MESSAGE, msg)
 
     self._update_status(check_result, source)
@@ -260,11 +278,11 @@ class HttpHealthCheckShareAdjuster(ShareAdjuster):
       msg - str - Extra message.
       log_fn - function - logger function to use.
     """
-    context = { 'event': event,
-                'result': result,
-                'source': source,
-                'check_uri': self._build_check_uri(),
-                'msg': msg }
+    context = {'event': event,
+               'result': result,
+               'source': source,
+               'check_uri': self._build_check_uri(),
+               'msg': msg}
     return context
 
   def _record(self, event, result, msg='', log_fn=logger.info, source=''):
@@ -278,11 +296,11 @@ class HttpHealthCheckShareAdjuster(ShareAdjuster):
       log_fn - function - logger function to use.
     """
     f = 'event:%(event)s result:%(result)s source:%(source)s check_uri:%(check_uri)s msg:%(msg)s'
-    context = { 'event': event,
-                'result': result,
-                'source': source,
-                'check_uri': self._build_check_uri(),
-                'msg': msg }
+    context = {'event': event,
+               'result': result,
+               'source': source,
+               'check_uri': self._build_check_uri(),
+               'msg': msg}
     log_fn(f, context)
 
   def _update_status(self, check_result, source):
