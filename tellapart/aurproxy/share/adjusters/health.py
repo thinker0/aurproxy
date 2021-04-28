@@ -258,8 +258,8 @@ class HttpHealthCheckShareAdjuster(ShareAdjuster):
       logger.error(RECORD_MESSAGE, msg)
 
     else:
-      check_result = HealthCheckResult.UNKNOWN_ERROR
-      UNHEALTHY.labels(source=source, type=check_result, status_code=500).inc()
+      check_result = HealthCheckResult.SUCCESS
+      UNHEALTHY.labels(source=source, type=check_result, status_code=200).inc()
       msg = self._record_msg(event=HttpHealthCheckLogEvent.RUNNING_CHECK,
                              result=check_result,
                              source=source)
