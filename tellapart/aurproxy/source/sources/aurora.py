@@ -21,7 +21,7 @@ _DEFAULT_AURORA_SCHEDULER_PATH = '/aurora/scheduler'
 
 
 def get_service_discovery_path(job, announcer_serverset_path):
-  return '/{0}/{1}'.format(announcer_serverset_path, job).replace("//", "")
+  return '/{0}/{1}'.format(announcer_serverset_path, job).replace("//", "/")
 
 
 def get_job_path(role, environment, job):
