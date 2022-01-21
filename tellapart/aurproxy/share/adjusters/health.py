@@ -213,6 +213,7 @@ class HttpHealthCheckShareAdjuster(ShareAdjuster):
         HEALTHY.labels(source=source).inc()
         msg = self._record_msg(event=HttpHealthCheckLogEvent.RUNNING_CHECK,
                                result=check_result,
+                               msg='status_code:{0}'.format(r.getcode()),
                                source=source)
         logger.info(RECORD_MESSAGE, msg)
 
@@ -230,6 +231,7 @@ class HttpHealthCheckShareAdjuster(ShareAdjuster):
       UNHEALTHY.labels(source=source, type=check_result, status_code=503).inc()
       msg = self._record_msg(event=HttpHealthCheckLogEvent.RUNNING_CHECK,
                              result=check_result,
+                             msg=repr(ex),
                              source=source)
       logger.error(RECORD_MESSAGE, msg)
 
@@ -238,6 +240,7 @@ class HttpHealthCheckShareAdjuster(ShareAdjuster):
       UNHEALTHY.labels(source=source, type=check_result, status_code=504).inc()
       msg = self._record_msg(event=HttpHealthCheckLogEvent.RUNNING_CHECK,
                              result=check_result,
+                             msg=repr(ex),
                              source=source)
       logger.error(RECORD_MESSAGE, msg)
 
@@ -246,6 +249,7 @@ class HttpHealthCheckShareAdjuster(ShareAdjuster):
       UNHEALTHY.labels(source=source, type=check_result, status_code=ex.code).inc()
       msg = self._record_msg(event=HttpHealthCheckLogEvent.RUNNING_CHECK,
                              result=check_result,
+                             msg=repr(ex),
                              source=source)
       logger.error(RECORD_MESSAGE, msg)
 
@@ -254,7 +258,7 @@ class HttpHealthCheckShareAdjuster(ShareAdjuster):
       UNHEALTHY.labels(source=source, type=check_result, status_code=502).inc()
       msg = self._record_msg(event=HttpHealthCheckLogEvent.RUNNING_CHECK,
                              result=check_result,
-                             msg='Exception when executing HttpHealthCheck.',
+                             msg='Exception when executing HttpHealthCheck. %s' % repr(ex),
                              source=source)
       logger.error(RECORD_MESSAGE, msg)
 
