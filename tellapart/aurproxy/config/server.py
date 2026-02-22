@@ -30,7 +30,7 @@ class Port(object):
       self.use_ssl = False
 
   def __unicode__(self):
-    return u'{}:{}'.format(self.port, self.use_ssl)
+    return '{}:{}'.format(self.port, self.use_ssl)
 
   def __str__(self):
     return '{}:{}'.format(self.port, 'ssl' if self.use_ssl else '')

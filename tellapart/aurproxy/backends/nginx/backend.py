@@ -57,6 +57,7 @@ class NginxProxyBackend(ProxyBackend):
                                          default=_DEFAULT_CONFIG_DEST,
                                          required=False)
     self._config_file_destination = destination
+    self._template_cache = {}
     self._stats_port = self._load_config_item('stats_port',
                                               config,
                                               default=None,
@@ -112,8 +113,11 @@ class NginxProxyBackend(ProxyBackend):
       self.signal_update()
 
   def _render(self, template_loc, context):
-    with open(template_loc) as t:
-      template = Template(t.read())
+    template = self._template_cache.get(template_loc)
+    if not template:
+      with open(template_loc) as t:
+        template = Template(t.read())
+      self._template_cache[template_loc] = template
     return template.render(**context)
 
   def _update(self, config, config_dest, restart_proxy):

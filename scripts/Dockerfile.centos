@@ -1,0 +1,13 @@
+FROM --platform=linux/amd64 centos:7
+RUN sed -i s/mirror.centos.org/vault.centos.org/g /etc/yum.repos.d/*.repo &&     sed -i s/^#.*baseurl=http/baseurl=http/g /etc/yum.repos.d/*.repo &&     sed -i s/^mirrorlist=http/#mirrorlist=http/g /etc/yum.repos.d/*.repo
+RUN yum install -y centos-release-scl &&     sed -i s/mirror.centos.org/vault.centos.org/g /etc/yum.repos.d/*.repo &&     sed -i s/^#.*baseurl=http/baseurl=http/g /etc/yum.repos.d/*.repo &&     sed -i s/^mirrorlist=http/#mirrorlist=http/g /etc/yum.repos.d/*.repo
+RUN yum install -y rh-python38-python-devel rh-python38-python-pip gcc make openssl-devel libffi-devel glibc-common glibc-devel &&     yum clean all
+ENV PATH="/opt/rh/rh-python38/root/usr/local/bin:/opt/rh/rh-python38/root/usr/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+ENV LD_LIBRARY_PATH="/opt/rh/rh-python38/root/usr/lib64"
+WORKDIR /build
+COPY . .
+RUN python3 -c 'import os, shutil; [os.remove(os.path.join(r, f)) for r, d, fs in os.walk(".") for f in fs if f == ".DS_Store" or f.endswith(".pyc")]; [shutil.rmtree(os.path.join(r, d)) for r, ds, f in os.walk(".") for d in ds if d == "__pycache__"]'
+RUN python3 -m pip install --upgrade pip && python3 -m pip install pex==2.1.137 wheel setuptools
+RUN mkdir /build/src && cp -r /build/tellapart /build/src/ && cp -r /build/templates /build/src/
+RUN pex -D /build/src -r requirements.txt -m tellapart.aurproxy.command -o aurproxy-7.pex --python=python3
+CMD ["cp", "aurproxy-7.pex", "/dist/"]

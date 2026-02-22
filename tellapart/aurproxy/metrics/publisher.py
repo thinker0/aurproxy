@@ -27,12 +27,10 @@ from tellapart.aurproxy.util import (
 
 logger = get_logger(__name__)
 
-class FlushEngine(object):
+class FlushEngine(object, metaclass=ABCMeta):
   """Class that uses some scheduling mechanism (threading, gevent, etc.) in
   order to periodically call flush_fn.
   """
-
-  __metaclass__ = ABCMeta
 
   def __init__(self, period, flush_fn):
     """
@@ -70,10 +68,9 @@ class ThreadFlushEngine(FlushEngine):
     """
     self._thread.stop()
 
-class MetricPublisher(object):
+class MetricPublisher(object, metaclass=ABCMeta):
   """Base definition of a class intended to publish metrics to external sources.
   """
-  __metaclass__ = ABCMeta
 
   def __init__(self, source, period=60, flush_engine=ThreadFlushEngine):
     """

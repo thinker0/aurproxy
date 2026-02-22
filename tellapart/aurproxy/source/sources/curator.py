@@ -323,7 +323,7 @@ class ServiceDiscovery(object):
     ChildrenWatch(self._zk, self._zk_path, self._on_set_changed)
 
   def _send_all_removed(self):
-    for k in self._members.keys():
+    for k in list(self._members.keys()):
       member = self._members.pop(k)
       self._on_leave(member)
 

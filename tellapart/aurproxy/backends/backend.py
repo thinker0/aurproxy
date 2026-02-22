@@ -40,9 +40,7 @@ _METRIC_SIGNAL_UPDATE_EXCEPTION = 'signal_update_exception'
 METRIC_SIGNAL_UPDATE_EXCEPTION = Counter('signal_update_exception', 'Total signal_update_exception', ['type'])
 
 
-class ProxyBackend(object):
-
-  __metaclass__ = ABCMeta
+class ProxyBackend(object, metaclass=ABCMeta):
 
   NAME = 'base'
 

@@ -47,6 +47,7 @@ class MetricStore(object):
     self.root_prefix = root_prefix
 
     self._metrics = dict()
+    self._max_metrics = 5000
     self._publishers = []
 
   def add_publisher(self, metric_publisher):
@@ -71,7 +72,7 @@ class MetricStore(object):
       A list of Metric objects.
     """
     metrics = copy.copy(self._metrics)
-    return metrics.values()
+    return list(metrics.values())
 
   def _generate_metric_name(self, name):
     """Generates a metric name based on any
@@ -100,6 +101,10 @@ class MetricStore(object):
     full_name = self._generate_metric_name(name)
     metric = self._metrics.get(full_name)
     if not metric:
+      if len(self._metrics) >= self._max_metrics:
+        # Prevent memory leak from dynamic metric names
+        return self.NAME_TO_TYPE[metric_type]("overflow_metric_sentinel")
+
       metric = self.NAME_TO_TYPE[metric_type](full_name)
       self._metrics[full_name] = metric
     else:

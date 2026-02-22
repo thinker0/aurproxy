@@ -31,7 +31,7 @@ from tellapart.aurproxy.util import get_logger, slugify
 
 logger = get_logger(__name__)
 
-_ZK_MAP = {}
+_ZK_MAP = {}  # {hosts: [client, ref_count]}
 
 
 class ServerSetSource(ProxySource):
@@ -63,17 +63,25 @@ class ServerSetSource(ProxySource):
 
   def start(self):
     global _ZK_MAP
-    if not self._zk_servers in _ZK_MAP:
-      _ZK_MAP[self._zk_servers] = self._get_kazoo_client()
+    if self._zk_servers not in _ZK_MAP:
+      _ZK_MAP[self._zk_servers] = [self._get_kazoo_client(), 0]
+    _ZK_MAP[self._zk_servers][1] += 1
     self._server_set = self._get_server_set()
     [ self.add(self._get_endpoint(s)) for s in self._server_set ]
 
   def stop(self):
+    global _ZK_MAP
+    if self._zk_servers in _ZK_MAP:
+      _ZK_MAP[self._zk_servers][1] -= 1
+      if _ZK_MAP[self._zk_servers][1] <= 0:
+        client, _ = _ZK_MAP.pop(self._zk_servers)
+        client.stop()
+        client.close()
     [ self.remove(self._get_endpoint(s)) for s in self._server_set ]
 
   @property
   def _zk(self):
-    return _ZK_MAP[self._zk_servers]
+    return _ZK_MAP[self._zk_servers][0]
 
   def _get_endpoint(self, service_instance):
     if self._endpoint:
@@ -88,7 +96,7 @@ class ServerSetSource(ProxySource):
                                             self._kw.get('env'),
                                             self._kw.get('job'),
                                             service_instance.shard)
-    for k, v in service_instance.additional_endpoints.items():
+    for k, v in list(service_instance.additional_endpoints.items()):
       port_map[k] = v.port
     return SourceEndpoint(host=ep.host,
                           port=ep.port,
@@ -190,7 +198,7 @@ class Member(object):
       additional_endpoints=dict((name, Endpoint(value['host'],
                                                 value['port']))
                                 for name, value
-                                in additional_endpoints.items()),
+                                in list(additional_endpoints.items())),
       shard=shard,
       status=status
     )
@@ -230,7 +238,7 @@ class Member(object):
     return self._shard
 
   def __addl_endpoints_str(self):
-    return ['%s=>%s' % (k, v) for k, v in self.additional_endpoints.items()]
+    return ['%s=>%s' % (k, v) for k, v in list(self.additional_endpoints.items())]
 
   def __str__(self):
     return 'Member(%s, %saddl: %s, status: %s)' % (
@@ -388,14 +396,15 @@ class ServerSet(object):
       self._send_all_removed()
     elif not self._watching:
       self._watching = True
-      self._begin_watch()
+      if not getattr(self, "_children_watch", None):
+            self._begin_watch()
 
   def _begin_watch(self):
     self._log.info('Beginning to watch path %s' % self._zk_path)
-    ChildrenWatch(self._zk, self._zk_path, self._on_set_changed)
+    self._children_watch = ChildrenWatch(self._zk, self._zk_path, self._on_set_changed)
 
   def _send_all_removed(self):
-    for k in self._members.keys():
+    for k in list(self._members.keys()):
       member = self._members.pop(k)
       self._on_leave(member)
 

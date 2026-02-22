@@ -21,9 +21,7 @@ from tellapart.aurproxy.util import get_logger
 
 logger = get_logger(__name__)
 
-class ProxySource(object):
-  __metaclass__ = ABCMeta
-
+class ProxySource(object, metaclass=ABCMeta):
   def __init__(self,
                signal_update_fn=None,
                share_adjuster_factories=None):

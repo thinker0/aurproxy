@@ -24,7 +24,7 @@ from collections import namedtuple
 
 import gevent
 import gevent.event
-from idna import unicode
+
 from raven import Client
 from raven.conf import setup_logging
 from raven.handlers.logging import SentryHandler
@@ -131,7 +131,7 @@ def load_klass_plugin(klass_dict,
   return load_plugin(klass, **kwargs)
 
 def slugify(s):
-  slug = unicodedata.normalize('NFKD', unicode(s))
+  slug = unicodedata.normalize('NFKD', str(s))
   slug = slug.encode('ascii', 'ignore').lower()
   slug = re.sub(r"[^a-z0-9]+", '_', slug.decode("utf-8")).strip('_')
 
@@ -212,7 +212,7 @@ class PeriodicTask(object):
       try:
         self._fn()
       except Exception:
-        logger = get_logger(unicode(self._fn))
+        logger = get_logger(str(self._fn))
         logger.exception("Failed to execute PeriodicTask.")
       finally:
         gevent.spawn_later(self._period, self._run)

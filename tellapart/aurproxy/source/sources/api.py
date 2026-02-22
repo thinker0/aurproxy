@@ -150,7 +150,7 @@ class ApiSource(ProxySource):
 
     class DynamicSourceList(Resource):
       def get(self):
-        return { "sources": root._source_map.keys() }
+        return { "sources": list(root._source_map.keys()) }
 
     # List sources
     api.add_resource(DynamicSourceList,
@@ -223,7 +223,7 @@ class ApiSource(ProxySource):
 
   def _all_managed_source_names(self):
     """Names of all managed sources."""
-    return self._source_map.keys()
+    return list(self._source_map.keys())
 
   def _add_managed_source(self, source_name, source_config, expiration_time):
     """

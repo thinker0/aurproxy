@@ -47,7 +47,7 @@ class GetLoggerTests(unittest.TestCase):
 
 class KlassFactoryTstBase(unittest.TestCase):
   def tst_klass_factory(self, callable_factory_creator):
-    factory = callable_factory_creator('__builtin__.dict', a=1, b=2)
+    factory = callable_factory_creator('builtins.dict', a=1, b=2)
     instance = factory.build()
     self.assertEqual(instance['a'], 1)
     self.assertEqual(instance['b'], 2)
@@ -82,11 +82,11 @@ class LoadCliKwargsTests(unittest.TestCase):
 class LoadCliPluginTests(unittest.TestCase):
   def test_load_cli_plugin(self):
     cli_kwargs = ['a=1', 'b=2']
-    instance = load_cli_plugin('__builtin__.dict', cli_kwargs)
+    instance = load_cli_plugin('builtins.dict', cli_kwargs)
     self.assertEquals(instance['a'], '1')
     self.assertEquals(instance['b'], '2')
     extra_kwargs = {'c': '3'}
-    instance = load_cli_plugin('__builtin__.dict', cli_kwargs, extra_kwargs)
+    instance = load_cli_plugin('builtins.dict', cli_kwargs, extra_kwargs)
     self.assertEquals(instance['a'], '1')
     self.assertEquals(instance['b'], '2')
     self.assertEquals(instance['c'], '3')
@@ -121,7 +121,7 @@ class LoadKlassPluginTests(unittest.TestCase):
   def test_load_klass_plugin(self):
     def build_klass_dict(klass_field_name='klass'):
       return {
-        klass_field_name: '__builtin__.dict',
+        klass_field_name: 'builtins.dict',
         'a': '1',
         'b': '2',
       }

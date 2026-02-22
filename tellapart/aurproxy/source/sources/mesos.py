@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from __future__ import absolute_import
+
 import json
 
 from gevent.lock import RLock
@@ -52,7 +52,7 @@ class MesosMasterProxySource(ServerSetSource):
 
   def _get_leader(self):
     # The current leader is the node with the lowest ID.
-    sorted_members = sorted(self._members.items(), key=lambda m: m[0])
+    sorted_members = sorted(list(self._members.items()), key=lambda m: m[0])
     if any(sorted_members):
       return sorted_members[0][1]
     else:
@@ -115,7 +115,7 @@ class MesosMasterProxySource(ServerSetSource):
                                             self._kw.get('env'),
                                             self._kw.get('job'),
                                             service_instance.shard)
-    for k, v in service_instance.additional_endpoints.items():
+    for k, v in list(service_instance.additional_endpoints.items()):
       port_map[k] = v.port
     return SourceEndpoint(host=ep.host,
                           port=ep.port,

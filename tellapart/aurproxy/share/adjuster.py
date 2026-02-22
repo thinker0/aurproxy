@@ -17,11 +17,9 @@ from abc import (
   abstractmethod,
   abstractproperty)
 
-class ShareAdjuster(object):
+class ShareAdjuster(object, metaclass=ABCMeta):
   """Class that adjusts the share of traffic that an endpoint should receive.
   """
-
-  __metaclass__ = ABCMeta
 
   def __init__(self, endpoint, signal_update_fn):
     """
