@@ -19,7 +19,8 @@ import importlib
 import shutil
 import subprocess
 import unicodedata
-from hashlib import md5
+import shlex
+from hashlib import sha256
 from collections import namedtuple
 
 import gevent
@@ -136,7 +137,7 @@ def slugify(s):
   slug = re.sub(r"[^a-z0-9]+", '_', slug.decode("utf-8")).strip('_')
 
   # To avoid slug collision, append hash of raw string
-  m = md5()
+  m = sha256()
   m.update(s.encode('utf8'))
   slug = '{0}_{1}'.format(slug, m.hexdigest())
 
@@ -145,8 +146,8 @@ def slugify(s):
 
 def run_local(command, capture=False):
   proc = subprocess.Popen(
-    command,
-    shell=True,
+    shlex.split(command),
+    shell=False,
     stdout=subprocess.PIPE,
     stderr=subprocess.PIPE,
   )

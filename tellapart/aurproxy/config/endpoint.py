@@ -68,7 +68,7 @@ class SourceEndpoint(EndpointBase):
     return '{0}:{1}'.format(self._host, self.port).encode('utf-8')
 
   def __hash__(self):
-    return int(hashlib.md5(self.__unicode__()).hexdigest(), 16)
+    return int(hashlib.sha256(self.__unicode__()).hexdigest(), 16)
 
   def __eq__(self, other):
     if self.host == other.host and self.port == other.port:

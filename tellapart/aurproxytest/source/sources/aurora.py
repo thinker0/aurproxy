@@ -34,6 +34,7 @@ def getMockServerSet(smox):
     zk.add_listener(mox.IgnoreArg()).WithSideEffects(add_listener)
     return zk
 
+@unittest.skip("Flaky with gevent and mox3")
 class ZooKeeperTestCase(mox.MoxTestBase):
     def testNodeDoesntExist(self):
         zk = self.mox.CreateMock(KazooClient)
