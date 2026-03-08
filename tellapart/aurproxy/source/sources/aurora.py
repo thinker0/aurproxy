@@ -24,8 +24,8 @@ def get_service_discovery_path(job, announcer_serverset_path):
   return '/{0}/{1}'.format(announcer_serverset_path, job).replace("//", "/")
 
 
-def get_job_path(cluster, role, environment, job):
-  return '{0}/{1}/{2}/{3}'.format(cluster, role, environment, job)
+def get_job_path(role, environment, job):
+  return '{0}/{1}/{2}'.format(role, environment, job)
 
 
 class AuroraProxySource(ServerSetSource):
@@ -39,7 +39,7 @@ class AuroraProxySource(ServerSetSource):
                **kw):
   
     serverset_path = get_service_discovery_path(
-        get_job_path(kw.get('cluster', ''), role, environment, job),
+        get_job_path(role, environment, job),
         announcer_serverset_path
     )
     kw['cluster'] = kw.get('cluster', '')
