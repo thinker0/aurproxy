@@ -29,9 +29,21 @@ from tellapart.aurproxy.source import ProxySource
 from tellapart.aurproxy.util import get_logger, slugify
 
 
+import atexit
+
 logger = get_logger(__name__)
 
 _ZK_MAP = {}  # {hosts: [client, ref_count]}
+
+def _close_zk_clients():
+    for hosts, (client, _) in list(_ZK_MAP.items()):
+        try:
+            client.stop()
+            client.close()
+        except Exception:
+            logger.warning('Failed to cleanly close ZK client for %s', hosts)
+
+atexit.register(_close_zk_clients)
 
 
 class ServerSetSource(ProxySource):
@@ -70,13 +82,8 @@ class ServerSetSource(ProxySource):
     [ self.add(self._get_endpoint(s)) for s in self._server_set ]
 
   def stop(self):
-    global _ZK_MAP
-    if self._zk_servers in _ZK_MAP:
-      _ZK_MAP[self._zk_servers][1] -= 1
-      if _ZK_MAP[self._zk_servers][1] <= 0:
-        client, _ = _ZK_MAP.pop(self._zk_servers)
-        client.stop()
-        client.close()
+    # Do not stop the client here, it may be shared.
+    # The connection will be closed on process exit.
     [ self.remove(self._get_endpoint(s)) for s in self._server_set ]
 
   @property
@@ -395,13 +402,14 @@ class ServerSet(object):
       self._watching = False
       self._send_all_removed()
     elif not self._watching:
-      self._watching = True
-      if not getattr(self, "_children_watch", None):
-            self._begin_watch()
+      self._begin_watch()
 
   def _begin_watch(self):
+    if self._watching:
+      return
+    self._watching = True
     self._log.info('Beginning to watch path %s' % self._zk_path)
-    self._children_watch = ChildrenWatch(self._zk, self._zk_path, self._on_set_changed)
+    ChildrenWatch(self._zk, self._zk_path, self._on_set_changed)
 
   def _send_all_removed(self):
     for k in list(self._members.keys()):
