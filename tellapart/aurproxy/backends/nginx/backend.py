@@ -22,8 +22,7 @@ from tellapart.aurproxy.backends.nginx.metrics import \
 from tellapart.aurproxy.metrics.store import increment_counter
 from tellapart.aurproxy.util import (
   get_logger,
-  move_file,
-  run_local)
+  move_file)
 from prometheus_client import Counter
 
 logger = get_logger(__name__)
