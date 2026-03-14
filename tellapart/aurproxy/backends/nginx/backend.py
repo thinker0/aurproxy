@@ -112,6 +112,7 @@ class NginxProxyBackend(ProxyBackend):
       raise
     try:
       os.kill(pid, signal.SIGHUP)
+      logger.info('Sent SIGHUP to nginx process %d — reload triggered successfully.', pid)
     except ProcessLookupError:
       logger.error('nginx process %d does not exist', pid)
       raise
