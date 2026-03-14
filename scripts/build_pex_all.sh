@@ -46,10 +46,6 @@ build_target() {
     docker build --platform linux/amd64 -t "$TAG" -f "$DOCKERFILE" .
     docker run --rm --platform linux/amd64 -v "$(pwd):/dist" "$TAG"
     
-    # Ensure file is correctly named
-    if [ -f "$SRC_OUT" ]; then
-        mv "$SRC_OUT" "$OUT"
-    fi
     chmod +x "$OUT"
     echo "Done! $OUT has been created."
 }

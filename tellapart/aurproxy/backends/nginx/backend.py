@@ -14,6 +14,7 @@
 
 from jinja2 import Template
 import os
+import signal
 
 from tellapart.aurproxy.backends import ProxyBackend
 from tellapart.aurproxy.backends.nginx.metrics import \
@@ -100,7 +101,23 @@ class NginxProxyBackend(ProxyBackend):
     return context
 
   def restart(self):
-    run_local('kill -HUP $( cat {0} )'.format(self._nginx_pid_path))
+    try:
+      with open(self._nginx_pid_path) as f:
+        pid = int(f.read().strip())
+    except FileNotFoundError:
+      logger.error('nginx PID file not found: %s', self._nginx_pid_path)
+      raise
+    except ValueError:
+      logger.error('nginx PID file contains invalid content: %s', self._nginx_pid_path)
+      raise
+    try:
+      os.kill(pid, signal.SIGHUP)
+    except ProcessLookupError:
+      logger.error('nginx process %d does not exist', pid)
+      raise
+    except PermissionError:
+      logger.error('Permission denied sending SIGHUP to nginx process %d', pid)
+      raise
 
   def update(self, restart_proxy):
     context = self._generate_context()
@@ -141,7 +158,7 @@ class NginxProxyBackend(ProxyBackend):
     except Exception as ex:
       logger.exception('Writing new configuration failed.')
       increment_counter(_METRIC_UPDATE_FAILED)
-      METRIC_UPDATE_FAILED.labels(type=ex.message).inc()
+      METRIC_UPDATE_FAILED.labels(type=str(ex)).inc()
       revert = True
     finally:
       if revert:
@@ -154,7 +171,7 @@ class NginxProxyBackend(ProxyBackend):
         except Exception as ex:
           logger.exception('Attempt to revert to old configuration failed!')
           increment_counter(_METRIC_REVERT_FAILED)
-          METRIC_REVERT_FAILED.labels(type=ex.message).inc()
+          METRIC_REVERT_FAILED.labels(type=str(ex)).inc()
     return not revert
 
   def _should_update_config(self, new_config, config_dest):
