@@ -42,7 +42,7 @@ class NginxRestartTests(unittest.TestCase):
       pid_path = f.name
     try:
       backend = self._make_backend(pid_path)
-      with patch('os.kill') as mock_kill:
+      with patch('tellapart.aurproxy.backends.nginx.backend.os.kill') as mock_kill:
         backend.restart()
         mock_kill.assert_called_once_with(12345, signal.SIGHUP)
     finally:
@@ -70,7 +70,7 @@ class NginxRestartTests(unittest.TestCase):
       pid_path = f.name
     try:
       backend = self._make_backend(pid_path)
-      with patch('os.kill', side_effect=ProcessLookupError):
+      with patch('tellapart.aurproxy.backends.nginx.backend.os.kill', side_effect=ProcessLookupError):
         with self.assertRaises(ProcessLookupError):
           backend.restart()
     finally:
