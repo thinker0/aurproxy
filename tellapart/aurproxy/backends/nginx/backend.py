@@ -12,9 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from jinja2 import Template
 import os
 import signal
+
+from jinja2 import Template
 
 from tellapart.aurproxy.backends import ProxyBackend
 from tellapart.aurproxy.backends.nginx.metrics import \
@@ -111,7 +112,7 @@ class NginxProxyBackend(ProxyBackend):
       raise
     try:
       os.kill(pid, signal.SIGHUP)
-      logger.info('Sent SIGHUP to nginx process %d — reload triggered successfully.', pid)
+      logger.info('Sent SIGHUP to nginx process %d successfully.', pid)
     except ProcessLookupError:
       logger.error('nginx process %d does not exist', pid)
       raise

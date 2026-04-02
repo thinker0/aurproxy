@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import atexit
 import json
 import posixpath
 import gevent
@@ -28,15 +29,12 @@ from tellapart.aurproxy.config import SourceEndpoint
 from tellapart.aurproxy.source import ProxySource
 from tellapart.aurproxy.util import get_logger, slugify
 
-
-import atexit
-
 logger = get_logger(__name__)
 
-_ZK_MAP = {}  # {hosts: [client, ref_count]}
+_ZK_MAP = {}  # {hosts: client}
 
 def _close_zk_clients():
-    for hosts, (client, _) in list(_ZK_MAP.items()):
+    for hosts, client in list(_ZK_MAP.items()):
         try:
             client.stop()
             client.close()
@@ -76,19 +74,20 @@ class ServerSetSource(ProxySource):
   def start(self):
     global _ZK_MAP
     if self._zk_servers not in _ZK_MAP:
-      _ZK_MAP[self._zk_servers] = [self._get_kazoo_client(), 0]
-    _ZK_MAP[self._zk_servers][1] += 1
+      _ZK_MAP[self._zk_servers] = self._get_kazoo_client()
     self._server_set = self._get_server_set()
-    [ self.add(self._get_endpoint(s)) for s in self._server_set ]
+    for s in self._server_set:
+      self.add(self._get_endpoint(s))
 
   def stop(self):
     # Do not stop the client here, it may be shared.
     # The connection will be closed on process exit.
-    [ self.remove(self._get_endpoint(s)) for s in self._server_set ]
+    for s in self._server_set:
+      self.remove(self._get_endpoint(s))
 
   @property
   def _zk(self):
-    return _ZK_MAP[self._zk_servers][0]
+    return _ZK_MAP[self._zk_servers]
 
   def _get_endpoint(self, service_instance):
     if self._endpoint:
@@ -407,9 +406,9 @@ class ServerSet(object):
   def _begin_watch(self):
     if self._watching:
       return
-    self._watching = True
     self._log.info('Beginning to watch path %s' % self._zk_path)
     ChildrenWatch(self._zk, self._zk_path, self._on_set_changed)
+    self._watching = True
 
   def _send_all_removed(self):
     for k in list(self._members.keys()):
