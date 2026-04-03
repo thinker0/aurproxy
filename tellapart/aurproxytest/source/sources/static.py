@@ -14,7 +14,10 @@
 
 import unittest
 
-from tellapart.aurproxy.source import StaticProxySource
+from tellapart.aurproxy.exception import AurProxyConfigException
+from tellapart.aurproxy.source import (
+  StaticListProxySource,
+  StaticProxySource)
 
 class StaticProxySourceTests(unittest.TestCase):
   def test_static_source(self):
@@ -33,6 +36,16 @@ class StaticProxySourceTests(unittest.TestCase):
     static_endpoint = static_endpoints.pop()
     self.assertEqual(static_endpoint.host, host)
     self.assertEqual(static_endpoint.port, port)
+
+  def test_static_list_source_requires_non_empty_server_list(self):
+    with self.assertRaises(AurProxyConfigException):
+      StaticListProxySource(signal_update_fn=lambda: None,
+                            share_adjuster_factories=[],
+                            server_list=[],
+                            cluster='c',
+                            role='r',
+                            environment='e',
+                            job='j')
 
 if __name__ == '__main__':
     unittest.main()

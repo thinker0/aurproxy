@@ -78,6 +78,8 @@ class StaticListProxySource(ProxySource):
     server_list = kwargs.get('server_list')
     logger.info('ServerList: {0}'.format(server_list))
     err_fmt = '"{0}" required on StaticListProxySource'
+    if not server_list:
+      raise AurProxyConfigException(err_fmt.format('server_list'))
     for idx, server_info in enumerate(server_list):
       _host = server_info.get('host')
       _port = server_info.get('port')
@@ -92,7 +94,7 @@ class StaticListProxySource(ProxySource):
       if not _port:
         raise AurProxyConfigException(err_fmt.format('port'))
       self._server_set.append(ShareEndpoint(_host, _port, _share, 1.0, _context))
-    if self._server_set.count == 0:
+    if len(self._server_set) == 0:
       raise AurProxyConfigException(err_fmt.format('server_list'))
 
   @property

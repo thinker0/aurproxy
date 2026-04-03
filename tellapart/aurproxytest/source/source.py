@@ -104,5 +104,18 @@ class SourceTests(unittest.TestCase):
     self.assertEqual(new_ep, scope.on_remove_endpoint)
     self.assertEqual(tst_source, scope.on_remove_source)
 
+  def test_stop_with_multiple_endpoints(self):
+    first = SourceEndpoint('127.0.0.1', 8080)
+    second = SourceEndpoint('127.0.0.1', 8081)
+    source = TstSource(name='stop_test',
+                       initial_endpoints=[first, second],
+                       signal_update_fn=lambda: None,
+                       share_adjuster_factories=[])
+    source.start()
+
+    source.stop()
+
+    self.assertEqual(len(source.endpoints), 0)
+
 if __name__ == '__main__':
     unittest.main()

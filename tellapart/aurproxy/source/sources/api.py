@@ -108,7 +108,9 @@ class ApiSource(ProxySource):
         if not managed_source:
           root._abort_no_source(source_name)
         else:
-          expiration = managed_source.expiration.expiration_time.isoformat()
+          expiration = None
+          if managed_source.expiration:
+            expiration = managed_source.expiration.expiration_time.isoformat()
           return { "source": managed_source.configuration,
                    "expiration": expiration }
 

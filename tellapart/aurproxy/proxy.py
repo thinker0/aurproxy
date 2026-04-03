@@ -110,15 +110,16 @@ class ProxyUpdater(object):
         self._updating= True
         try:
           self._update(restart_proxy=True)
+          self._last_updated = as_of
         except Exception as e:
           increment_counter(_METRIC_UPDATE_ATTEMPT_FAILED)
-          METRIC_UPDATE_ATTEMPT_FAILED.labels(type=e.args[0]).inc()
+          METRIC_UPDATE_ATTEMPT_FAILED.labels(type=e.__class__.__name__).inc()
           logger.exception('Failed to update configuration.')
         finally:
           self._updating = False
     except Exception as e:
       increment_counter(_METRIC_UPDATE_ATTEMPT_FAILED)
-      METRIC_UPDATE_ATTEMPT_FAILED.labels(type=e.args[0]).inc()
+      METRIC_UPDATE_ATTEMPT_FAILED.labels(type=e.__class__.__name__).inc()
       logger.exception('Error updating.')
 
   def _update(self, restart_proxy=True):

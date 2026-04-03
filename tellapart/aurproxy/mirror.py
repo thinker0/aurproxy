@@ -19,10 +19,12 @@ import os
 import psutil
 
 from tellapart.aurproxy.exception import AurProxyConfigException
+from tellapart.aurproxy.metrics.store import increment_counter
 from tellapart.aurproxy.source.source import ProxySource
 from tellapart.aurproxy.util import (
   get_logger,
   load_klass_plugin)
+from prometheus_client import Counter
 
 logger = get_logger(__name__)
 
@@ -35,6 +37,40 @@ _FALLBACK_COMMAND_TEMPLATE = 'echo $$ > {{pid_path}} && exec python -c ' \
                              ' sleep(10)\\")"'
 _GOR_PATH = '/opt/go/bin/gor'
 _GOR_COMMAND_PATH = '/etc/aurproxy/gor/dynamic.sh'
+
+_METRIC_MIRROR_UPDATE_ATTEMPTED = 'mirror_update_attempted'
+_METRIC_MIRROR_UPDATE_SUCCEEDED = 'mirror_update_succeeded'
+_METRIC_MIRROR_UPDATE_FAILED = 'mirror_update_failed'
+_METRIC_MIRROR_UPDATE_SKIPPED = 'mirror_update_skipped'
+_METRIC_MIRROR_FALLBACK_COMMAND_USED = 'mirror_fallback_command_used'
+_METRIC_MIRROR_KILL_ATTEMPTED = 'mirror_kill_attempted'
+_METRIC_MIRROR_KILL_SUCCEEDED = 'mirror_kill_succeeded'
+_METRIC_MIRROR_KILL_FAILED = 'mirror_kill_failed'
+
+METRIC_MIRROR_UPDATE_ATTEMPTED = Counter(
+  _METRIC_MIRROR_UPDATE_ATTEMPTED,
+  'Total mirror update attempts (count)')
+METRIC_MIRROR_UPDATE_SUCCEEDED = Counter(
+  _METRIC_MIRROR_UPDATE_SUCCEEDED,
+  'Total mirror update successes (count)')
+METRIC_MIRROR_UPDATE_FAILED = Counter(
+  _METRIC_MIRROR_UPDATE_FAILED,
+  'Total mirror update failures (count)')
+METRIC_MIRROR_UPDATE_SKIPPED = Counter(
+  _METRIC_MIRROR_UPDATE_SKIPPED,
+  'Total mirror update skips because no update was needed (count)')
+METRIC_MIRROR_FALLBACK_COMMAND_USED = Counter(
+  _METRIC_MIRROR_FALLBACK_COMMAND_USED,
+  'Total fallback mirror command generations (count)')
+METRIC_MIRROR_KILL_ATTEMPTED = Counter(
+  _METRIC_MIRROR_KILL_ATTEMPTED,
+  'Total attempts to kill running mirror process (count)')
+METRIC_MIRROR_KILL_SUCCEEDED = Counter(
+  _METRIC_MIRROR_KILL_SUCCEEDED,
+  'Total successful mirror process kills (count)')
+METRIC_MIRROR_KILL_FAILED = Counter(
+  _METRIC_MIRROR_KILL_FAILED,
+  'Total failed mirror process kills (count)')
 
 def load_mirror_updater(source,
                         ports,
@@ -62,7 +98,7 @@ def load_mirror_updater(source,
     raise AurProxyConfigException('source_config required!')
   if not ports:
     raise AurProxyConfigException('ports required!')
-  if not max_qps:
+  if max_qps is None:
     raise AurProxyConfigException('max_qps required!')
   if not os.path.isfile(command_template_path):
     msg = '"{0}" doesn\'t exist!'.format(command_template_path)
@@ -134,7 +170,7 @@ class MirrorUpdater(object):
     One-off way to generate mirroring process configuration (command).
     """
     self._source.start()
-    self.update(kill_running=False)
+    self.update(kill_running=False, schedule_next=False)
 
   def start(self):
     """
@@ -183,7 +219,7 @@ class MirrorUpdater(object):
     """
     return self._needs_update and not self._updating
 
-  def update(self, kill_running=True):
+  def update(self, kill_running=True, schedule_next=True):
     """
     Update the configuration of the traffic mirroring process (gor).
 
@@ -194,6 +230,8 @@ class MirrorUpdater(object):
       Nothing
     """
     try:
+      increment_counter(_METRIC_MIRROR_UPDATE_ATTEMPTED)
+      METRIC_MIRROR_UPDATE_ATTEMPTED.inc()
       if self._should_update():
         self._needs_update = False
         self._updating = True
@@ -202,15 +240,26 @@ class MirrorUpdater(object):
         command = self._generate_command()
         success = self._update(command, self._command_path, kill_running)
         if not success:
+          increment_counter(_METRIC_MIRROR_UPDATE_FAILED)
+          METRIC_MIRROR_UPDATE_FAILED.inc()
           logger.info('Failed to update! Rescheduling.')
           self._needs_update = True
+        else:
+          increment_counter(_METRIC_MIRROR_UPDATE_SUCCEEDED)
+          METRIC_MIRROR_UPDATE_SUCCEEDED.inc()
+      else:
+        increment_counter(_METRIC_MIRROR_UPDATE_SKIPPED)
+        METRIC_MIRROR_UPDATE_SKIPPED.inc()
     except Exception:
+      increment_counter(_METRIC_MIRROR_UPDATE_FAILED)
+      METRIC_MIRROR_UPDATE_FAILED.inc()
       self._needs_update = True
       logger.exception('Attempt to update traffic mirror configuration'
                        ' failed.')
     finally:
       self._updating = False
-      spawn_later(self._max_update_frequency, self.update)
+      if schedule_next:
+        spawn_later(self._max_update_frequency, self.update)
 
   def _generate_command(self):
     """
@@ -223,6 +272,8 @@ class MirrorUpdater(object):
       # Aurora is going to keep the replay process running whether or not we
       # have the endpoints needed to construct a valid gor command. If we
       # don't, drop in a placeholder.
+      increment_counter(_METRIC_MIRROR_FALLBACK_COMMAND_USED)
+      METRIC_MIRROR_FALLBACK_COMMAND_USED.inc()
       template = self._fallback_command_template
       context = self._generate_fallback_context()
     else:
@@ -279,7 +330,7 @@ class MirrorUpdater(object):
       Boolean indicating whether update was successful.
     """
     updated = self._update_command(command, command_path)
-    success = False
+    success = updated
     if updated and kill_running:
       # Currently no graceful restart mechanism in gor
       # Depend on Aurora to start gor back up
@@ -326,6 +377,8 @@ class MirrorUpdater(object):
       Whether successful in killing all traffic mirror and fallback processes.
     """
     logger.info('Looking for existing traffic mirror processes.')
+    increment_counter(_METRIC_MIRROR_KILL_ATTEMPTED)
+    METRIC_MIRROR_KILL_ATTEMPTED.inc()
     success = True
     killed_any = False
     try:
@@ -336,6 +389,7 @@ class MirrorUpdater(object):
         msg = 'Killing traffic mirror process: {0}'.format(cmd_line)
         logger.info(msg)
         proc.kill()
+        killed_any = True
       else:
         msg = 'Pid is for process with invalid cmd_line: {0}'.format(cmd_line)
         raise Exception(msg)
@@ -344,6 +398,12 @@ class MirrorUpdater(object):
       success = False
     if not killed_any:
       logger.info('Did not kill any traffic mirror processes.')
+    if success:
+      increment_counter(_METRIC_MIRROR_KILL_SUCCEEDED)
+      METRIC_MIRROR_KILL_SUCCEEDED.inc()
+    else:
+      increment_counter(_METRIC_MIRROR_KILL_FAILED)
+      METRIC_MIRROR_KILL_FAILED.inc()
     return success
 
   def _get_pid(self):
