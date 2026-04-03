@@ -24,14 +24,54 @@ from kazoo.handlers.gevent import SequentialGeventHandler
 from kazoo.recipe.watchers import (
   ChildrenWatch,
   DataWatch)
+from prometheus_client import Counter
 
 from tellapart.aurproxy.config import SourceEndpoint
+from tellapart.aurproxy.metrics.store import increment_counter
 from tellapart.aurproxy.source import ProxySource
 from tellapart.aurproxy.util import get_logger, slugify
 
 logger = get_logger(__name__)
 
 _ZK_MAP = {}  # {hosts: client}
+
+_METRIC_SOURCE_DISCOVERY_STARTED = 'source_discovery_started'
+_METRIC_SOURCE_DISCOVERY_STOPPED = 'source_discovery_stopped'
+_METRIC_SOURCE_DISCOVERY_JOINED = 'source_discovery_joined'
+_METRIC_SOURCE_DISCOVERY_LEFT = 'source_discovery_left'
+_METRIC_SERVERSET_WATCH_BEGIN = 'serverset_watch_begin'
+_METRIC_SERVERSET_WATCH_RESTART = 'serverset_watch_restart'
+_METRIC_SERVERSET_NOTIFICATION_ERROR = 'serverset_notification_error'
+_METRIC_SERVERSET_MEMBER_PARSE_ERROR = 'serverset_member_parse_error'
+
+METRIC_SOURCE_DISCOVERY_STARTED = Counter(
+  _METRIC_SOURCE_DISCOVERY_STARTED,
+  'Total discovery source starts (count)',
+  ['source_type'])
+METRIC_SOURCE_DISCOVERY_STOPPED = Counter(
+  _METRIC_SOURCE_DISCOVERY_STOPPED,
+  'Total discovery source stops (count)',
+  ['source_type'])
+METRIC_SOURCE_DISCOVERY_JOINED = Counter(
+  _METRIC_SOURCE_DISCOVERY_JOINED,
+  'Total source discovery joins (count)',
+  ['source_type'])
+METRIC_SOURCE_DISCOVERY_LEFT = Counter(
+  _METRIC_SOURCE_DISCOVERY_LEFT,
+  'Total source discovery leaves (count)',
+  ['source_type'])
+METRIC_SERVERSET_WATCH_BEGIN = Counter(
+  _METRIC_SERVERSET_WATCH_BEGIN,
+  'Total serverset watch begin events (count)')
+METRIC_SERVERSET_WATCH_RESTART = Counter(
+  _METRIC_SERVERSET_WATCH_RESTART,
+  'Total serverset watch restart events (count)')
+METRIC_SERVERSET_NOTIFICATION_ERROR = Counter(
+  _METRIC_SERVERSET_NOTIFICATION_ERROR,
+  'Total serverset notification worker errors (count)')
+METRIC_SERVERSET_MEMBER_PARSE_ERROR = Counter(
+  _METRIC_SERVERSET_MEMBER_PARSE_ERROR,
+  'Total serverset member parse errors (count)')
 
 def _close_zk_clients():
     for hosts, client in list(_ZK_MAP.items()):
@@ -73,6 +113,9 @@ class ServerSetSource(ProxySource):
 
   def start(self):
     global _ZK_MAP
+    increment_counter(_METRIC_SOURCE_DISCOVERY_STARTED)
+    METRIC_SOURCE_DISCOVERY_STARTED.labels(
+      source_type=self.__class__.__name__.lower()).inc()
     if self._zk_servers not in _ZK_MAP:
       _ZK_MAP[self._zk_servers] = self._get_kazoo_client()
     self._server_set = self._get_server_set()
@@ -82,6 +125,9 @@ class ServerSetSource(ProxySource):
   def stop(self):
     # Do not stop the client here, it may be shared.
     # The connection will be closed on process exit.
+    increment_counter(_METRIC_SOURCE_DISCOVERY_STOPPED)
+    METRIC_SOURCE_DISCOVERY_STOPPED.labels(
+      source_type=self.__class__.__name__.lower()).inc()
     for s in self._server_set:
       self.remove(self._get_endpoint(s))
 
@@ -134,11 +180,17 @@ class ServerSetSource(ProxySource):
 
   def _on_join(self, _):
     def __on_join(service_instance):
+      increment_counter(_METRIC_SOURCE_DISCOVERY_JOINED)
+      METRIC_SOURCE_DISCOVERY_JOINED.labels(
+        source_type=self.__class__.__name__.lower()).inc()
       self.add(self._get_endpoint(service_instance))
     return __on_join
 
   def _on_leave(self, _):
     def __on_leave(service_instance):
+      increment_counter(_METRIC_SOURCE_DISCOVERY_LEFT)
+      METRIC_SOURCE_DISCOVERY_LEFT.labels(
+        source_type=self.__class__.__name__.lower()).inc()
       self.remove(self._get_endpoint(service_instance))
     return __on_leave
 
@@ -379,6 +431,11 @@ class ServerSet(object):
       # Its possible for the ZK node to be removed between getting it
       # from the list and querying it, if so, just skip it.
       return None
+    except Exception:
+      increment_counter(_METRIC_SERVERSET_MEMBER_PARSE_ERROR)
+      METRIC_SERVERSET_MEMBER_PARSE_ERROR.inc()
+      self._log.exception('Failed to parse serverset member node: %s', node)
+      return None
 
   def _zk_nodes_to_members(self, nodes):
     return [m for m in (self._safe_zk_node_to_member(n) for n in nodes
@@ -398,6 +455,8 @@ class ServerSet(object):
   def _data_changed(self, data, stat):
     # stat == None -> the node was deleted (or doesnt exist)
     if stat is None:
+      increment_counter(_METRIC_SERVERSET_WATCH_RESTART)
+      METRIC_SERVERSET_WATCH_RESTART.inc()
       self._watching = False
       self._send_all_removed()
     elif not self._watching:
@@ -407,6 +466,8 @@ class ServerSet(object):
     if self._watching:
       return
     self._log.info('Beginning to watch path %s' % self._zk_path)
+    increment_counter(_METRIC_SERVERSET_WATCH_BEGIN)
+    METRIC_SERVERSET_WATCH_BEGIN.inc()
     ChildrenWatch(self._zk, self._zk_path, self._on_set_changed)
     self._watching = True
 
@@ -449,6 +510,8 @@ class ServerSet(object):
             self._log.exception('Error in OnJoin callback.')
 
       except Exception:
+        increment_counter(_METRIC_SERVERSET_NOTIFICATION_ERROR)
+        METRIC_SERVERSET_NOTIFICATION_ERROR.inc()
         self._log.exception('Error in notification worker.')
 
   def _on_set_changed(self, children):

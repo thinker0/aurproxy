@@ -15,6 +15,7 @@
 from datetime import datetime
 import itertools
 import unittest
+from unittest.mock import patch
 
 from tellapart.aurproxy.backends import (
   ProxyBackend,
@@ -199,6 +200,21 @@ class ProxyBackendTests(ProxyBackendTstBase):
       self.tst_proxy_backend(backend, scope)
     finally:
       ProxyBackendProvider.unregister(TstProxyBackend)
+
+  def test_signal_update_handles_python3_exception_without_message_attr(self):
+    config, scope = build_proxy_configuration(include_route_server=True,
+                                              include_stream_server=False,
+                                              include_route_share_adjusters=False,
+                                              include_stream_share_adjusters=False)
+
+    def _raise():
+      raise Exception()
+
+    backend = TstProxyBackend(configuration=config,
+                              signal_update_fn=_raise)
+    with patch('tellapart.aurproxy.backends.backend.METRIC_SIGNAL_UPDATE_EXCEPTION.labels') as labels:
+      backend.signal_update()
+      labels.assert_called()
 
 if __name__ == '__main__':
     unittest.main()

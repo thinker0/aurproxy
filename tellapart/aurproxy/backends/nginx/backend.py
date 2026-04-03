@@ -29,7 +29,7 @@ from prometheus_client import Counter
 logger = get_logger(__name__)
 
 _DEFAULT_CONFIG_DEST = '/etc/aurproxy/nginx/nginx.conf'
-_DEFAULT_TEMPLATE_LOC = './tellapart/aurproxy/templates/' \
+_DEFAULT_TEMPLATE_LOC = './templates/' \
                         'nginx/nginx.conf.template'
 
 _METRIC_UPDATE_SUCCEEDED = 'update_succeeded'

@@ -8,7 +8,11 @@ except ImportError:
   _KAZOO_SPEC = None
 
 from tellapart.aurproxy.source.sources.aurora import AuroraProxySource
-from tellapart.aurproxy.source.sources.serverset import ServerSet
+from tellapart.aurproxy.source.sources.serverset import (
+  Endpoint,
+  Member,
+  ServerSet,
+  ServerSetSource)
 
 
 class TestServerSetStability(unittest.TestCase):
@@ -49,6 +53,37 @@ class TestServerSetStability(unittest.TestCase):
       self.ss._data_changed('data', MagicMock())
       assert self.ss._watching is True
       assert mock_cw.call_count == 2
+
+  def test_safe_zk_node_to_member_records_parse_error(self):
+    self.ss._member_factory = MagicMock(side_effect=ValueError('bad node'))
+    self.ss._get_info = MagicMock(return_value='{}')
+    with patch('tellapart.aurproxy.source.sources.serverset.METRIC_SERVERSET_MEMBER_PARSE_ERROR.inc') as metric_inc:
+      member = self.ss._safe_zk_node_to_member('member-1')
+    self.assertIsNone(member)
+    metric_inc.assert_called_once()
+
+
+class TestServerSetSourceMetrics(unittest.TestCase):
+  def test_join_and_leave_record_metrics(self):
+    source = ServerSetSource(path='/test/path',
+                             zk_servers='127.0.0.1:2181',
+                             signal_update_fn=lambda: None,
+                             share_adjuster_factories=[])
+    member = Member(member='m1',
+                    service_endpoint=Endpoint('127.0.0.1', 8080),
+                    additional_endpoints={},
+                    shard=0,
+                    status='ALIVE')
+    join_cb = source._on_join('/test/path')
+    leave_cb = source._on_leave('/test/path')
+
+    with patch('tellapart.aurproxy.source.sources.serverset.METRIC_SOURCE_DISCOVERY_JOINED.labels') as joined_labels:
+      join_cb(member)
+      joined_labels.assert_called_with(source_type='serversetsource')
+
+    with patch('tellapart.aurproxy.source.sources.serverset.METRIC_SOURCE_DISCOVERY_LEFT.labels') as left_labels:
+      leave_cb(member)
+      left_labels.assert_called_with(source_type='serversetsource')
 
 
 class TestAuroraSourcePath(unittest.TestCase):

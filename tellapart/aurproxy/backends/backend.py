@@ -199,7 +199,7 @@ class ProxyBackend(object, metaclass=ABCMeta):
     except Exception as ex:
       logger.exception("Failed to signal update.")
       increment_counter(_METRIC_SIGNAL_UPDATE_EXCEPTION)
-      METRIC_SIGNAL_UPDATE_EXCEPTION.labels(type=ex.message).inc()
+      METRIC_SIGNAL_UPDATE_EXCEPTION.labels(type=ex.__class__.__name__).inc()
 
   def start_discovery(self, weight_adjustment_start):
     if not self._started_discovery:

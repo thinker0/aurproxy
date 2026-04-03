@@ -54,7 +54,7 @@ class CuratorServiceDiscoverySource(ProxySource):
 
   @property
   def slug(self):
-    return slugify('{0}__{1}'.format(self._zk_path, self._endpoint))
+    return slugify('{0}__{1}'.format(self._zk_path, self._zk_servers))
 
   def start(self):
     global _ZK_MAP
@@ -148,7 +148,7 @@ class Instance(object):
     if address is None:
       raise ValueError("Expected `address` in instance data")
     port = blob.get('port')
-    if blob is None:
+    if port is None:
       raise ValueError("Expected `port` in instance data")
 
     return cls(

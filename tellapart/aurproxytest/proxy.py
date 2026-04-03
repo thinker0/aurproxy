@@ -12,8 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from datetime import datetime
+from datetime import (
+  datetime,
+  timedelta)
 import unittest
+from unittest.mock import patch
 
 from tellapart.aurproxy.backends import ProxyBackendProvider
 from tellapart.aurproxy.config import SourceEndpoint
@@ -70,6 +73,47 @@ class ProxyUpdaterTests(unittest.TestCase):
           self.assertTrue(proxy_updater._should_update(now))
           proxy_updater._try_update(now)
           self.assertFalse(proxy_updater._should_update(now))
+    finally:
+      ProxyBackendProvider.unregister(TstProxyBackend)
+
+  def test_respects_max_update_frequency(self):
+    config, scope = build_proxy_configuration(include_route_server=True,
+                                              include_stream_server=False,
+                                              include_route_share_adjusters=False,
+                                              include_stream_share_adjusters=False)
+    try:
+      ProxyBackendProvider.register(TstProxyBackend)
+      updater = ProxyUpdater(backend=TstProxyBackend.NAME,
+                             config=config,
+                             update_period=0,
+                             max_update_frequency=60)
+      now = datetime.now()
+      self.assertTrue(updater._should_update(now))
+      updater._try_update(now)
+
+      updater._on_update()
+      self.assertFalse(updater._should_update(now + timedelta(seconds=30)))
+      self.assertTrue(updater._should_update(now + timedelta(seconds=61)))
+    finally:
+      ProxyBackendProvider.unregister(TstProxyBackend)
+
+  def test_update_failure_with_empty_exception_args_does_not_crash(self):
+    config, _ = build_proxy_configuration(include_route_server=True,
+                                          include_stream_server=False,
+                                          include_route_share_adjusters=False,
+                                          include_stream_share_adjusters=False)
+    try:
+      ProxyBackendProvider.register(TstProxyBackend)
+      updater = ProxyUpdater(backend=TstProxyBackend.NAME,
+                             config=config,
+                             update_period=0,
+                             max_update_frequency=0)
+      updater._on_update()
+
+      with patch.object(updater, '_update', side_effect=Exception()):
+        with patch('tellapart.aurproxy.proxy.METRIC_UPDATE_ATTEMPT_FAILED.labels') as labels:
+          updater._try_update(datetime.now())
+          labels.assert_called()
     finally:
       ProxyBackendProvider.unregister(TstProxyBackend)
 

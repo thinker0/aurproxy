@@ -342,7 +342,7 @@ class HttpHealthCheckShareAdjuster(ShareAdjuster):
         except Exception as ex:
           logger.exception('Exception when executing callback on '
                            'BasicHttpHealthCheck status change.')
-          RUNNING_CALLBACK.labels(type=ex.args[0]).inc()
+          RUNNING_CALLBACK.labels(type=ex.__class__.__name__).inc()
           msg = self._record_msg(HttpHealthCheckLogEvent.RUNNING_CALLBACK,
                        HttpHealthCheckLogResult.ERROR,
                        source=source)

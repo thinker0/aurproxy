@@ -48,7 +48,7 @@ class ProxySource(object, metaclass=ABCMeta):
     pass
 
   def stop(self):
-    for endpoint in self._endpoints:
+    for endpoint in list(self._endpoints):
       self.remove(endpoint)
 
   def add(self, endpoint):

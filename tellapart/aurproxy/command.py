@@ -64,9 +64,9 @@ _DEFAULT_REPLAY_MAX_UPDATE_FREQUENCY = _DEFAULT_MIRROR_MAX_UPDATE_FREQUENCY
 _DEFAULT_UPDATE_PERIOD = 2
 _DEFAULT_WEIGHT_ADJUSTMENT_DELAY_SEC = 180
 
-_MIRROR_COMMAND_TEMPLATE_PATH = './tellapart/aurproxy/templates/gor' \
+_MIRROR_COMMAND_TEMPLATE_PATH = './templates/gor' \
                                 '/mirror.sh.template'
-_REPLAY_COMMAND_TEMPLATE_PATH = './tellapart/aurproxy/templates/gor' \
+_REPLAY_COMMAND_TEMPLATE_PATH = './templates/gor' \
                                 '/replay.sh.template'
 _MIRROR_PID_PATH = '/tmp/mirror_pid'
 
