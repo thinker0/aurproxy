@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import gc
+import os
 import tracemalloc
 
 import gevent.monkey
@@ -335,18 +336,18 @@ def _start_web(port, sentry_dsn=None, blueprints=None):
       logger.info('Keyboard interrupt, executing shutdown hooks...')
       execute_shutdown_handlers()
 
-def _momory_logger():
+def _memory_logger():
   current = tracemalloc.take_snapshot()
   logger.info("================== Top Current:")
   for i, stat in enumerate(current.statistics('filename')[:10], 1):
     logger.info('================== top_current: ' + str(i) + ' ' + str(stat))
   logger.info("================== Top Current:")
-  tracemalloc.clear_traces()
-  spawn_later(60, _momory_logger)
+  spawn_later(60, _memory_logger)
 
 if __name__ == '__main__':
-  tracemalloc.start(25)
-  spawn_later(60, _momory_logger)
+  if os.getenv("AURPROXY_TRACEMALLOC"):
+    tracemalloc.start(1)
+    spawn_later(60, _memory_logger)
   # gc.set_debug(gc.DEBUG_LEAK)
   gc.enable()
   try:
