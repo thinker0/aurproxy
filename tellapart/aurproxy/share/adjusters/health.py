@@ -205,26 +205,24 @@ class HttpHealthCheckShareAdjuster(ShareAdjuster):
       # req = urllib.request.urlopen(check_uri)
       # req.get_method = lambda: self._http_method.upper()
       # r = opener.open(req, timeout=self._timeout)
-      # TODO Support http_method
-      r = request.urlopen(check_uri, timeout=self._timeout)
+      with request.urlopen(check_uri, timeout=self._timeout) as r:
+        if r.getcode() == 200:
+          check_result = HealthCheckResult.SUCCESS
+          HEALTHY.labels(source=source).inc()
+          msg = self._record_msg(event=HttpHealthCheckLogEvent.RUNNING_CHECK,
+                                 result=check_result,
+                                 msg='status_code:{0}'.format(r.getcode()),
+                                 source=source)
+          logger.info(RECORD_MESSAGE, msg)
 
-      if r.getcode() == 200:
-        check_result = HealthCheckResult.SUCCESS
-        HEALTHY.labels(source=source).inc()
-        msg = self._record_msg(event=HttpHealthCheckLogEvent.RUNNING_CHECK,
-                               result=check_result,
-                               msg='status_code:{0}'.format(r.getcode()),
-                               source=source)
-        logger.info(RECORD_MESSAGE, msg)
-
-      else:
-        check_result = HealthCheckResult.ERROR_CODE
-        UNHEALTHY.labels(source=source, type=check_result, status_code=r.getcode()).inc()
-        msg = self._record_msg(event=HttpHealthCheckLogEvent.RUNNING_CHECK,
-                               result=HttpHealthCheckLogResult.FAILURE,
-                               msg='status_code:{0}'.format(r.getcode()),
-                               source=source)
-        logger.error(RECORD_MESSAGE, msg)
+        else:
+          check_result = HealthCheckResult.ERROR_CODE
+          UNHEALTHY.labels(source=source, type=check_result, status_code=r.getcode()).inc()
+          msg = self._record_msg(event=HttpHealthCheckLogEvent.RUNNING_CHECK,
+                                 result=HttpHealthCheckLogResult.FAILURE,
+                                 msg='status_code:{0}'.format(r.getcode()),
+                                 source=source)
+          logger.error(RECORD_MESSAGE, msg)
 
     except ConnectionError as ex:
       check_result = HealthCheckResult.CONNECTION_ERROR
@@ -252,6 +250,7 @@ class HttpHealthCheckShareAdjuster(ShareAdjuster):
                              msg=repr(ex),
                              source=source)
       logger.error(RECORD_MESSAGE, msg)
+      ex.close()
 
     except error.URLError as ex:
       check_result = HealthCheckResult.UNKNOWN_ERROR

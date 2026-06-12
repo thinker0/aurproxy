@@ -216,4 +216,5 @@ class PeriodicTask(object):
         logger = get_logger(str(self._fn))
         logger.exception("Failed to execute PeriodicTask.")
       finally:
-        gevent.spawn_later(self._period, self._run)
+        if not self._stop_event.isSet():
+          gevent.spawn_later(self._period, self._run)

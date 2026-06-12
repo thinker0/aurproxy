@@ -193,21 +193,21 @@ class OpenTSDBMetricPublisher(MetricPublisher):
 
     """Override of base method.
     """
+    from contextlib import closing
     try:
       logger.debug('Publishing metrics to OpenTSDB.')
-      sock = socket(AF_INET, SOCK_STREAM)
-      sock.settimeout(3)
-      sock.connect((self._host, self._port))
-      sock.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
-      sock.setsockopt(IPPROTO_TCP, TCP_NODELAY, 1)
-      sock.setsockopt(SOL_SOCKET, SO_LINGER, struct.pack('ii', 1, 0))
-      ts = int(time.time())
-      for store in self._metric_stores:
-        for metric in store.get_metrics():
-          request = "put %s%s%s %d %f host=%s pid=%d" % (self._prefix, self._source, metric.name, ts, metric.value(),
-                                                         self.hostname(), os.getpid())
-          logger.debug('Publishing: %s' % (request))
-          sock.sendall(request + "\n")
-      sock.close()
+      with closing(socket(AF_INET, SOCK_STREAM)) as sock:
+        sock.settimeout(3)
+        sock.connect((self._host, self._port))
+        sock.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
+        sock.setsockopt(IPPROTO_TCP, TCP_NODELAY, 1)
+        sock.setsockopt(SOL_SOCKET, SO_LINGER, struct.pack('ii', 1, 0))
+        ts = int(time.time())
+        for store in self._metric_stores:
+          for metric in store.get_metrics():
+            request = "put %s%s%s %d %f host=%s pid=%d" % (self._prefix, self._source, metric.name, ts, metric.value(),
+                                                           self.hostname(), os.getpid())
+            logger.debug('Publishing: %s' % (request))
+            sock.sendall((request + "\n").encode('utf-8'))
     except Exception:
       logger.exception('Failed to publish metrics to OpenTSDB!')
